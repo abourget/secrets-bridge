@@ -31,12 +31,12 @@ var testitCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		bridgeConf, err := cmd.Flags().GetString("bridge-conf")
 		if err != nil {
-			log.Fatalln("--bridge-conf not specified")
+			log.Fatalln("--bridge-conf invalid:", err)
 		}
 
 		bridge, err := bridge.NewFromString(bridgeConf)
 		if err != nil {
-			log.Fatalln("--bridge-conf has an invalid value")
+			log.Fatalln("--bridge-conf has an invalid value:", err)
 		}
 
 		c := client.NewClient(bridge)

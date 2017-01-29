@@ -38,6 +38,14 @@ to quickly create a Cobra application.`,
 		// setup the listener BEFORE exec'ing the subprocess
 		// exec.Command(args...)
 		// quit when we're done, delete the unix socket is we were doing ssh-agent.
+
+		// client --listen, forwards to the Client server, .. pass-through
+		// handle secrets requests, which will be merely forwarded,
+		// and b64 things will be asked right here.. we'll merely
+		// forward from the client when he listen on `--listen`.. both
+		// status codes and content.
+		//
+
 		fmt.Println("bridge called")
 	},
 }

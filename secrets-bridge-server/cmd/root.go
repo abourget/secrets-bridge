@@ -31,7 +31,6 @@ func Execute() {
 func init() {
 	cobra.OnInitialize(initConfig)
 
-	RootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default is $HOME/.secrets-bridge-server.yaml)")
 	RootCmd.PersistentFlags().StringP("bridge-conf", "w", "", "Bridge authentication file. Written to in serve command, read in kill command. Defaults to `bridge-conf`")
 }
 

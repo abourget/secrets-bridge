@@ -1,7 +1,6 @@
 package client
 
 import (
-	"crypto/tls"
 	"net"
 	"net/http"
 	"time"
@@ -12,8 +11,8 @@ import (
 func NewClient(conf *bridge.Bridge) *Client {
 	return &Client{
 		conf: conf,
-		httpClient: http.Client{
-			Transport: http.Transport{
+		httpClient: &http.Client{
+			Transport: &http.Transport{
 				// similar to `http.DefaultTransport`, with additional `TLSConfig`.
 				Proxy: http.ProxyFromEnvironment,
 				DialContext: (&net.Dialer{
@@ -24,7 +23,7 @@ func NewClient(conf *bridge.Bridge) *Client {
 				IdleConnTimeout:       90 * time.Second,
 				TLSHandshakeTimeout:   10 * time.Second,
 				ExpectContinueTimeout: 1 * time.Second,
-				TLSclientConfig:       *tls.Config,
+				TLSClientConfig:       conf.ClientTLSConfig(),
 			},
 		},
 	}

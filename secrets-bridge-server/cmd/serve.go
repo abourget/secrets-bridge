@@ -1,15 +1,22 @@
 package cmd
 
 import (
+	"crypto/tls"
 	"encoding/json"
+	"encoding/base64"
 	"fmt"
 	"io/ioutil"
 	"log"
+	"net/http"
+	"regexp"
 	"strings"
+	"time"
 
+	"github.com/abourget/secrets-bridge/pkg/agentfwd"
 	"github.com/abourget/secrets-bridge/pkg/bridge"
 	"github.com/abourget/secrets-bridge/pkg/secrets"
 	"github.com/spf13/cobra"
+	"golang.org/x/net/websocket"
 )
 
 // serveCmd represents the serve command
@@ -40,28 +47,26 @@ func init() {
 }
 
 func serve(cmd *cobra.Command, args []string) {
-
-	// TODO: Work your own magic here
-	fmt.Println("serve called")
 	b, err := bridge.NewBridge()
 	if err != nil {
 		log.Fatalln("Failed to setup bridge:", err)
 	}
 
-	bridgeConfFilename, err := cmd.Flags().GetString("bridge-conf")
-	if err != nil {
+	bridgeConfFilename, _ := cmd.Flags().GetString("bridge-conf")
+	if bridgeConfFilename == "" {
 		bridgeConfFilename = "bridge-conf"
 	}
 
 	jsonConfig, _ := json.Marshal(b)
-	err = ioutil.WriteFile(bridgeConfFilename, jsonConfig, 0600)
+
+	log.Printf("Writing %q\n", bridgeConfFilename)
+	err = ioutil.WriteFile(bridgeConfFilename, []byte(base64.StdEncoding.EncodeToString(jsonConfig)), 0600)
 	if err != nil {
 		log.Fatalf("Error writing %q: %s\n", bridgeConfFilename, err)
 	}
 
 	// Read secrets
 	store := &secrets.Store{}
-
 	for _, secret := range secretLiterals {
 		parts := strings.SplitN(secret, "=", 2)
 		if len(parts) != 2 {
@@ -85,27 +90,80 @@ func serve(cmd *cobra.Command, args []string) {
 			log.Fatalf(`Error reading file %q for secret-from-file %q: %s\n`, filename, secret, err)
 		}
 
-		err := store.Add(parts[0], fileContent)
+		err = store.Add(parts[0], fileContent)
 		if err != nil {
 			log.Fatalf(`Error reading value from secrets file %q: %s\n`, filename, err)
 		}
 	}
+	log.Printf("Loaded %d secrets\n", len(store.Secrets))
 
+	// code the agentfwd/server.go part, litsening for the websocket, and forwarding
+	// the stuff to SSH_SOCK_AUTH
 	// depending on `-A`, setup the websocket endpoint.
-	// generate the key meterial, new client cert/key pair, CA, sign it, etc..
-	// the listener should be TLS configured, with those certs, and only accept connections
-	//   using this client-cert thing..
-	//
-	// handle websocket connections, and forward between that and
-	// the unix domain socket we connected to.
 
-	// handle secrets requests, which will be merely forwarded,
-	// and b64 things will be asked right here.. we'll merely
-	// forward from the client when he listen on `--listen`.. both
-	// status codes and content.
-	//
+	// Generate the client key+cert, signed with the CA internally..
+
+	mux := http.NewServeMux()
+	mux.HandleFunc("/secrets/", func(w http.ResponseWriter, r *http.Request) {
+		matches := secretsRE.FindStringSubmatch(r.URL.Path)
+		if matches == nil {
+			http.NotFound(w, r)
+			return
+		}
+
+		if r.Method != "GET" {
+			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+			return
+		}
+
+		key := matches[1]
+		value := store.Get(key)
+		if value == nil {
+			http.NotFound(w, r)
+			return
+		}
+
+		log.Printf("Serving secret %q (%d bytes)\n", key, len(value))
+		w.Header().Set("Content-Length", fmt.Sprintf("%d", len(value)))
+		w.Header().Set("Content-Type", "application/octet-stream")
+		w.WriteHeader(200)
+		w.Write(value)
+	})
+	if enableSSHAgent {
+		log.Println("Enabling SSH-Agent forwarding handler")
+		mux.Handle("/ssh-agent-forwarder", websocket.Handler(agentfwd.HandleSSHAgentForward))
+	}
+
+	server := http.Server{
+		Handler: mux,
+	}
+	tlsListener := tls.NewListener(b.Listener, b.ServerTLSConfig())
+
+	done := make(chan bool, 2)
+	go func() {
+		log.Println("Serving requests")
+		err = server.Serve(tlsListener)
+		if err != nil {
+			log.Fatalln("error serving requests:", err)
+		}
+		log.Println("Gracefully exiting")
+		done <- true
+	}()
+
+	if timeout != 0 {
+		go func() {
+			<-time.After(time.Duration(timeout) * time.Second)
+			log.Fatalf("Server shutting down after timeout of %d seconds\n", timeout)
+			done <- false
+		}()
+	}
+
+	<-done
+
 	// handler("GET", "/secrets/:key")
 	// handler("POST", "/ssh-agent-forwarder")
 
 	// listen for a `--timeout` and exit on timeout.. or not..
 }
+
+var secretsRE = regexp.MustCompile(`/secrets/(.+)`)

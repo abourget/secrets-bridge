@@ -40,8 +40,6 @@ func NewBridge() (bridge *Bridge, err error) {
 		return
 	}
 
-	bridge.caKey = privKey
-
 	tmpl := x509.Certificate{
 		SerialNumber:          big.NewInt(01),
 		Subject:               pkix.Name{Organization: []string{"secrets-bridge"}, CommonName: "secrets-bridge"},

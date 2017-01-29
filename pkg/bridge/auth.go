@@ -28,27 +28,22 @@ type Bridge struct {
 func NewFromString(b64conf string) (bridge *Bridge, err error) {
 	content, err := base64.StdEncoding.DecodeString(b64conf)
 	if err != nil {
-		return
+		return nil, fmt.Errorf("decoding base64 input: %s", err)
 	}
 
 	err = json.Unmarshal(content, &bridge)
 	if err != nil {
-		return
+		return nil, fmt.Errorf("json unmarshal: %s", err)
 	}
 
 	bridge.caCertPool, err = bridge.readCACertPool()
 	if err != nil {
-		return
-	}
-
-	bridge.caTLSCert, err = tls.X509KeyPair([]byte(bridge.CACert), bridge.caKey)
-	if err != nil {
-		return
+		return nil, fmt.Errorf("building CA cert pool: %s", err)
 	}
 
 	bridge.clientTLSCert, err = tls.X509KeyPair([]byte(bridge.ClientCert), []byte(bridge.ClientKey))
 	if err != nil {
-		return
+		return nil, fmt.Errorf("loading client keypair: %s", err)
 	}
 
 	return
@@ -57,8 +52,7 @@ func NewFromString(b64conf string) (bridge *Bridge, err error) {
 func (b *Bridge) readCACertPool() (*x509.CertPool, error) {
 	caCertPool := x509.NewCertPool()
 
-	var block *pem.Block
-	block, pemCerts := pem.Decode([]byte(b.CACert))
+	block, _ := pem.Decode([]byte(b.CACert))
 	if block == nil {
 		return nil, fmt.Errorf("invalid PEM encoding for ca_cert field")
 	}
