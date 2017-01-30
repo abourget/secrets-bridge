@@ -5,6 +5,7 @@ import (
 	"log"
 	"net"
 	"os"
+	"strings"
 
 	"golang.org/x/net/websocket"
 )
@@ -12,17 +13,22 @@ import (
 var UnixSocket = "/tmp/secrets-bridge-ssh-agent-forwarder"
 
 func ListenAndServeSSHAgentForwarder(targetURL, websocketOrigin string, tlsConfig *tls.Config) error {
+	os.Remove(UnixSocket)
 	listener, err := net.ListenUnix("unix", &net.UnixAddr{Name: UnixSocket, Net: "unix"})
 	if err != nil {
 		return err
 	}
 	defer os.Remove(UnixSocket)
 
+	targetURL = strings.Replace(targetURL, "https:", "wss:", 1)
+
 	for {
 		conn, err := listener.AcceptUnix()
 		if err != nil {
 			return err
 		}
+
+		log.Println("Received connection on SSH-Agent unix socket")
 
 		go func() {
 			defer conn.Close()

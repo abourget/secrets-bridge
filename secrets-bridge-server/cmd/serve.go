@@ -41,7 +41,7 @@ var timeout int
 func init() {
 	RootCmd.AddCommand(serveCmd)
 
-	serveCmd.Flags().BoolVarP(&enableSSHAgent, "ssh-agent-forwarder", "A", false, "Enable SSH Agent forwarder. Uses env's SSH_SOCK_AUTH.")
+	serveCmd.Flags().BoolVarP(&enableSSHAgent, "ssh-agent-forwarder", "A", false, "Enable SSH Agent forwarder. Uses env's SSH_AUTH_SOCK.")
 	serveCmd.Flags().StringSliceVar(&secretLiterals, "secret", []string{}, "Literal secret, in the form `key=value`. 'key' can be prefixed by 'b64:' or 'b64u:' to denote that the 'value' is base64-encoded or base64-url-encoded")
 	serveCmd.Flags().StringSliceVar(&secretsFromFiles, "secret-from-file", []string{}, "Secret from the content of a file, in the form `key=filename`. 'key' can also be prefixed by 'b64:' and 'b64u:' to indicate the encoding of the file")
 	serveCmd.Flags().IntVarP(&timeout, "timeout", "t", 0, "Timeout in `seconds` before the server exits. Defaults to 0 (indefinite)")
@@ -94,7 +94,7 @@ func serve(cmd *cobra.Command, args []string) {
 	log.Printf("Loaded %d secrets\n", len(store.Secrets))
 
 	// code the agentfwd/server.go part, litsening for the websocket, and forwarding
-	// the stuff to SSH_SOCK_AUTH
+	// the stuff to SSH_AUTH_SOCK
 	// depending on `-A`, setup the websocket endpoint.
 
 	// Generate the client key+cert, signed with the CA internally..

@@ -55,8 +55,6 @@ secrets-bridge-client --bridge-conf=$BRIDGE_CONF exec
 		// exec.Command(args...)
 		// quit when we're done, delete the unix socket is we were doing ssh-agent.
 
-		env := os.Environ()
-
 		if enableSSHAgentForwarding {
 			go func() {
 				log.Println("secrets-bridge: Setting up SSH-Agent forwarder...")
@@ -65,7 +63,7 @@ secrets-bridge-client --bridge-conf=$BRIDGE_CONF exec
 					log.Fatalln("couldn't setup SSH-Agent forwarder:", err)
 				}
 			}()
-			env = append(env, fmt.Sprintf("SSH_SOCK_AUTH=%s", agentfwd.UnixSocket))
+			os.Setenv("SSH_AUTH_SOCK", agentfwd.UnixSocket)
 			time.Sleep(25 * time.Millisecond)
 		}
 
@@ -87,7 +85,7 @@ secrets-bridge-client --bridge-conf=$BRIDGE_CONF exec
 			arguments = args[1:]
 		}
 		subprocess := exec.Command(program, arguments...)
-		subprocess.Env = env
+		subprocess.Env = os.Environ()
 		subprocess.Stdin = os.Stdin
 		subprocess.Stdout = os.Stdout
 		subprocess.Stderr = os.Stderr
@@ -128,7 +126,7 @@ var secretToFiles []string
 func init() {
 	RootCmd.AddCommand(execCmd)
 
-	execCmd.Flags().BoolVarP(&enableSSHAgentForwarding, "ssh-agent", "A", false, "Enable SSH-Agent relay. Sets SSH_SOCK_AUTH in the subprocess call.")
+	execCmd.Flags().BoolVarP(&enableSSHAgentForwarding, "ssh-agent", "A", false, "Enable SSH-Agent relay. Sets SSH_AUTH_SOCK in the subprocess call.")
 	execCmd.Flags().IntVarP(&listenOnPort, "listen", "l", 0, "Listen for local queries on specified `port`. The client service responds to http://127.0.0.1:[port]/secrets/key, and outputs the plain text secrets. 'b64:' and 'b64u:' prefixes will provide an encoded value.")
 	// execCmd.Flags().StringSliceVarP(&secretToFiles, "secret-to-file", "s", []string{}, "Use `key=output_filename`. Write secret to temporary file before calling the command, and clean-up no matter what happens to the subprocess. This ensures you won't leave traces in a Docker image layer, for example.")
 

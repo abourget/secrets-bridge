@@ -68,7 +68,7 @@ will be generated on the next run.
 
 ### Features
 
-* SSH-Agent forwarding. The `client` sets the `SSH_SOCK_AUTH`
+* SSH-Agent forwarding. The `client` sets the `SSH_AUTH_SOCK`
   environment variable when calling the sub-processes, and
   transparently passes that through the bridge, so the SSH-Agent on
   the host machine can serve the signing requests.
