@@ -2,12 +2,13 @@ package cmd
 
 import (
 	"crypto/tls"
-	"encoding/json"
 	"encoding/base64"
+	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"log"
 	"net/http"
+	"os"
 	"regexp"
 	"strings"
 	"time"
@@ -50,11 +51,6 @@ func serve(cmd *cobra.Command, args []string) {
 	b, err := bridge.NewBridge()
 	if err != nil {
 		log.Fatalln("Failed to setup bridge:", err)
-	}
-
-	bridgeConfFilename, _ := cmd.Flags().GetString("bridge-conf")
-	if bridgeConfFilename == "" {
-		bridgeConfFilename = "bridge-conf"
 	}
 
 	jsonConfig, _ := json.Marshal(b)
@@ -128,6 +124,15 @@ func serve(cmd *cobra.Command, args []string) {
 		w.Header().Set("Content-Type", "application/octet-stream")
 		w.WriteHeader(200)
 		w.Write(value)
+	})
+	mux.HandleFunc("/ping", func(w http.ResponseWriter, r *http.Request) {
+		log.Println("Received a PING, sending protocol version.")
+		w.Write([]byte("v1"))
+	})
+	mux.HandleFunc("/quit", func(w http.ResponseWriter, r *http.Request) {
+		log.Println("Received QUIT, quitting...")
+		w.Write([]byte("quitting..."))
+		os.Exit(0)
 	})
 	if enableSSHAgent {
 		log.Println("Enabling SSH-Agent forwarding handler")

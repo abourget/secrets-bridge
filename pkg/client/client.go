@@ -1,8 +1,12 @@
 package client
 
 import (
+	"fmt"
+	"io/ioutil"
 	"net"
 	"net/http"
+	"net/http/httputil"
+	"net/url"
 	"time"
 
 	"github.com/abourget/secrets-bridge/pkg/bridge"
@@ -31,7 +35,7 @@ func NewClient(conf *bridge.Bridge) *Client {
 
 type Client struct {
 	conf           *bridge.Bridge
-	chosenEndpoint string
+	chosenEndpoint *url.URL
 	httpClient     *http.Client
 }
 
@@ -41,29 +45,80 @@ func (c *Client) Quit() error {
 }
 
 func (c *Client) Ping() error {
-	// TODO: loop through the addresses, when we find one that works,
-	// we reconfigure the Client's `auth` field, with the first
-	// endpoint being the one that worked, so next calls we don't need
-	// to cycle through all of them.
-
-	// TODO: ping would check the return value too, make sure it's
-	// "pong" and a 200 status code.. so we know we're talking to the
-	// right beast.
-
-	// TODO: ping should fail if the version number negotiated isn't
-	// compatible with this version protocol, in which case the client
-	// spits out an error, saying "protocols incompatible, upgrade
-	// either your client or server", report server protocol version,
-	// and client protocol version.
-	_, err := c.doRequest("GET", "/ping")
+	resp, err := c.doRequest("GET", "/ping")
+	if string(resp) != "v1" {
+		// report better, check if it starts with v\d+ ? indicate the
+		// discrepencies between server and client protocol versions.
+		return fmt.Errorf(`ping failed: expected protocol version "v1" received %q`, string(resp))
+	}
 	return err
 }
 
-func (c *Client) doRequest(method string, path string) (string, error) {
-	// TODO: do the HTTPS call, adding the Server Cert, and the Client
-	// cert/key pair to the TLSConfig.
-	// perform the request
-	// get the response
-	// return on errors..
-	return "", nil
+func (c *Client) GetSecret(key string) ([]byte, error) {
+	return c.doRequest("GET", fmt.Sprintf("/secrets/%s", key))
+}
+
+func (c *Client) GetSecretString(key string) (string, error) {
+	resp, err := c.GetSecret(key)
+	if err != nil {
+		return "", err
+	}
+	return string(resp), nil
+}
+
+func (c *Client) RequestProxier() func(w http.ResponseWriter, r *http.Request) {
+	return httputil.NewSingleHostReverseProxy(c.chosenEndpoint).ServeHTTP
+}
+
+func (c *Client) ChooseEndpoint() (err error) {
+	var endpoint string
+	for _, endpoint = range c.conf.Endpoints {
+		dest := fmt.Sprintf("%s/ping", endpoint)
+		req, err := http.NewRequest("GET", dest, nil)
+		if err != nil {
+			fmt.Println("ChoosenEndpoint NewRequest:", err)
+			continue
+		}
+		resp, err := c.httpClient.Do(req)
+		if err != nil {
+			fmt.Println("ChoosenEndpoint Do request:", err)
+			continue
+		}
+		resp.Body.Close()
+
+		target, err := url.Parse(endpoint)
+		if err != nil {
+			return err
+		}
+
+		c.chosenEndpoint = target
+
+		return nil
+	}
+	return fmt.Errorf("none found")
+}
+
+func (c *Client) doRequest(method string, path string) ([]byte, error) {
+	dest := c.chosenEndpoint.String() + path
+	req, err := http.NewRequest(method, dest, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	cnt, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return nil, err
+	}
+
+	if resp.StatusCode != 200 {
+		return nil, fmt.Errorf("status %d: %s", resp.StatusCode, string(cnt))
+	}
+
+	return cnt, nil
 }

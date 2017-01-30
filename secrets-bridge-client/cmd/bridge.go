@@ -1,39 +1,40 @@
-// Copyright © 2017 NAME HERE <EMAIL ADDRESS>
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
+// Copyright © 2017 Alexandre Bourget <alex@bourget.cc>
 
 package cmd
 
 import (
 	"fmt"
+	"log"
 
+	"github.com/abourget/secrets-bridge/pkg/bridge"
+	"github.com/abourget/secrets-bridge/pkg/client"
 	"github.com/spf13/cobra"
 )
 
 // bridgeCmd represents the bridge command
 var bridgeCmd = &cobra.Command{
 	Use:   "bridge",
-	Short: "A brief description of your command",
-	Long: `A longer description that spans multiple lines and likely contains examples
-and usage of using your command. For example:
-
-Cobra is a CLI library for Go that empowers applications.
-This application is a tool to generate the needed files
-to quickly create a Cobra application.`,
+	Short: "Setup bridge, connect to server and proxy the SSH-Agent or serve secrets securely.",
+	Long:  ``,
 	Run: func(cmd *cobra.Command, args []string) {
-		// TODO: Work your own magic here
-		// TODO: validate args isn't empty, as we'll call that command...
-		// connect using the client,
+		bridgeConf, err := cmd.Flags().GetString("bridge-conf")
+		if err != nil {
+			log.Fatalln("--bridge-conf invalid:", err)
+		}
+
+		bridge, err := bridge.NewFromString(bridgeConf)
+		if err != nil {
+			log.Fatalln("--bridge-conf has an invalid value:", err)
+		}
+
+		c := client.NewClient(bridge)
+		err = c.Ping()
+		if err != nil {
+			log.Fatalln("error pinging server:", err)
+		}
+
+		fmt.Println("bridge server responding")
+
 		// setup the SSH agent if we specified `--ssh-agent`, with websocket and all..
 		// setup the listener BEFORE exec'ing the subprocess
 		// exec.Command(args...)
@@ -45,6 +46,9 @@ to quickly create a Cobra application.`,
 		// forward from the client when he listen on `--listen`.. both
 		// status codes and content.
 		//
+
+		// listen on 127.0.0.1:4444 or --listen port
+		// hook the client.RequestProxier
 
 		fmt.Println("bridge called")
 	},

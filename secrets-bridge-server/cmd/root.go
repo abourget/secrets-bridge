@@ -8,13 +8,11 @@ import (
 	"github.com/spf13/viper"
 )
 
-var cfgFile string
-
 // RootCmd represents the base command when called without any subcommands
 var RootCmd = &cobra.Command{
 	Use:   "secrets-bridge-server",
-	Short: "Serves secrets to Docker build runs, from the host",
-	Long: ``,
+	Short: "Serves secrets to Docker build runs, securely, over from the host",
+	Long:  ``,
 	// Uncomment for top-level action..
 	// Run: func(cmd *cobra.Command, args []string) {},
 }
@@ -28,23 +26,22 @@ func Execute() {
 	}
 }
 
+var bridgeConfFilename string
+
 func init() {
 	cobra.OnInitialize(initConfig)
 
-	RootCmd.PersistentFlags().StringP("bridge-conf", "w", "", "Bridge authentication file. Written to in serve command, read in kill command. Defaults to `bridge-conf`")
+	RootCmd.PersistentFlags().StringVarP(&bridgeConfFilename, "bridge-conf", "w", "bridge-conf", "Bridge authentication file. Written to in serve command, read in kill command. Defaults to `bridge-conf`")
 }
 
 // initConfig reads in config file and ENV variables if set.
 func initConfig() {
-	if cfgFile != "" { // enable ability to specify config file via flag
-		viper.SetConfigFile(cfgFile)
-	}
+	viper.SetConfigName(".secrets-bridge-server")
+	viper.AddConfigPath(".")
+	viper.AddConfigPath("$HOME")
+	viper.SetEnvPrefix("SECRETS_BRIDGE")
+	viper.AutomaticEnv()
 
-	viper.SetConfigName(".secrets-bridge-server") // name of config file (without extension)
-	viper.AddConfigPath("$HOME")  // adding home directory as first search path
-	viper.AutomaticEnv()          // read in environment variables that match
-
-	// If a config file is found, read it in.
 	if err := viper.ReadInConfig(); err == nil {
 		fmt.Println("Using config file:", viper.ConfigFileUsed())
 	}

@@ -40,7 +40,7 @@ var testitCmd = &cobra.Command{
 		}
 
 		c := client.NewClient(bridge)
-		err = c.Ping()
+		err = c.ChooseEndpoint()
 		if err != nil {
 			log.Fatalln("error pinging server:", err)
 		}

@@ -71,15 +71,20 @@ func (b *Bridge) readCACertPool() (*x509.CertPool, error) {
 }
 
 func (b *Bridge) ClientTLSConfig() *tls.Config {
-	return &tls.Config{
+	c := &tls.Config{
 		RootCAs:      b.caCertPool,
 		Certificates: []tls.Certificate{b.clientTLSCert}, // populated through `NewFromString`
 	}
+	c.BuildNameToCertificate()
+	return c
 }
 
 func (b *Bridge) ServerTLSConfig() *tls.Config {
-	return &tls.Config{
+	c := &tls.Config{
 		Certificates: []tls.Certificate{b.caTLSCert}, // populated through `NewBridge`
+		ClientCAs:    b.caCertPool,
 		ClientAuth:   tls.RequireAndVerifyClientCert,
 	}
+	c.BuildNameToCertificate()
+	return c
 }

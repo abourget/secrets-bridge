@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"fmt"
+	"io/ioutil"
 	"log"
 
 	"github.com/abourget/secrets-bridge/pkg/bridge"
@@ -20,12 +21,12 @@ Cobra is a CLI library for Go that empowers applications.
 This application is a tool to generate the needed files
 to quickly create a Cobra application.`,
 	Run: func(cmd *cobra.Command, args []string) {
-		bridgeConf, err := cmd.Flags().GetString("bridge-conf")
+		bridgeConf, err := ioutil.ReadFile(bridgeConfFilename)
 		if err != nil {
-			log.Fatalln("--bridge-conf invalid:", err)
+			log.Fatalln("reading %q: %s", bridgeConfFilename, err)
 		}
 
-		bridge, err := bridge.NewFromString(bridgeConf)
+		bridge, err := bridge.NewFromString(string(bridgeConf))
 		if err != nil {
 			log.Fatalln("--bridge-conf has an invalid value:", err)
 		}

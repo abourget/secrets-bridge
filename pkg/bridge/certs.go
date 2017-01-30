@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"math/big"
 	"net"
+	"strings"
 	"time"
 )
 
@@ -31,7 +32,11 @@ func NewBridge() (bridge *Bridge, err error) {
 
 	bridge.Listener = listener
 	for _, ip := range ips {
-		bridge.Endpoints = append(bridge.Endpoints, fmt.Sprintf("https://%s:%d", ip.String(), listener.Addr().(*net.TCPAddr).Port))
+		ipStr := ip.String()
+		if strings.Contains(ipStr, ":") {
+			ipStr = "[" + ipStr + "]"
+		}
+		bridge.Endpoints = append(bridge.Endpoints, fmt.Sprintf("https://%s:%d", ipStr, listener.Addr().(*net.TCPAddr).Port))
 	}
 
 	// Generate CA key+cert
@@ -40,38 +45,83 @@ func NewBridge() (bridge *Bridge, err error) {
 		return
 	}
 
-	tmpl := x509.Certificate{
-		SerialNumber:          big.NewInt(01),
-		Subject:               pkix.Name{Organization: []string{"secrets-bridge"}, CommonName: "secrets-bridge"},
+	caCertTpl := &x509.Certificate{
+		SerialNumber: big.NewInt(1),
+		Subject: pkix.Name{
+			Organization: []string{"secrets-bridge"},
+			CommonName:   "secrets-bridge-server",
+		},
 		SignatureAlgorithm:    x509.SHA256WithRSA,
 		NotBefore:             time.Now(),
 		NotAfter:              time.Now().Add(1 * time.Hour),
 		BasicConstraintsValid: true,
+		IsCA:           true,
+		MaxPathLenZero: true,
+		KeyUsage:       x509.KeyUsageCertSign | x509.KeyUsageDigitalSignature,
+		ExtKeyUsage:    []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth, x509.ExtKeyUsageClientAuth},
+		IPAddresses:    ips,
 	}
-	tmpl.IsCA = true
-	tmpl.MaxPathLenZero = true
-	tmpl.KeyUsage = x509.KeyUsageCertSign | x509.KeyUsageDigitalSignature
-	tmpl.ExtKeyUsage = []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth, x509.ExtKeyUsageClientAuth}
-	tmpl.IPAddresses = ips
 
-	derBytes, err := x509.CreateCertificate(rand.Reader, &tmpl, &tmpl, &privKey.PublicKey, privKey)
+	derBytes, err := x509.CreateCertificate(rand.Reader, caCertTpl, caCertTpl, &privKey.PublicKey, privKey)
 	if err != nil {
 		return
 	}
 
-	caCert := pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: derBytes})
+	bridge.CACert = string(pem.EncodeToMemory(&pem.Block{
+		Type:  "CERTIFICATE",
+		Bytes: derBytes,
+	}))
 
-	bridge.CACert = string(caCert)
+	bridge.caCertPool, err = bridge.readCACertPool()
+	if err != nil {
+		return
+	}
 
-	caKeyBytes := x509.MarshalPKCS1PrivateKey(privKey)
-	caKey := pem.EncodeToMemory(&pem.Block{Type: "RSA PRIVATE KEY", Bytes: caKeyBytes})
+	caKey := pem.EncodeToMemory(&pem.Block{
+		Type:  "RSA PRIVATE KEY",
+		Bytes: x509.MarshalPKCS1PrivateKey(privKey),
+	})
 
-	bridge.caTLSCert, err = tls.X509KeyPair([]byte(caCert), caKey)
+	bridge.caTLSCert, err = tls.X509KeyPair([]byte(bridge.CACert), caKey)
 	if err != nil {
 		return
 	}
 
 	// Generate client key + csr + cert
+	clientCertTpl := &x509.Certificate{
+		SerialNumber: big.NewInt(2),
+		Subject: pkix.Name{
+			Organization: []string{"secrets-bridge"},
+			CommonName:   "secrets-bridge-client",
+		},
+		NotBefore:   time.Now(),
+		NotAfter:    time.Now().Add(1 * time.Hour),
+		ExtKeyUsage: []x509.ExtKeyUsage{x509.ExtKeyUsageClientAuth, x509.ExtKeyUsageServerAuth},
+		KeyUsage:    x509.KeyUsageDigitalSignature | x509.KeyUsageCertSign,
+	}
+	clientPriv, err := rsa.GenerateKey(rand.Reader, 1024)
+	if err != nil {
+		return
+	}
+
+	clientCert, err := x509.CreateCertificate(rand.Reader, clientCertTpl, caCertTpl, &clientPriv.PublicKey, privKey)
+	if err != nil {
+		return
+	}
+
+	bridge.ClientCert = string(pem.EncodeToMemory(&pem.Block{
+		Type:  "CERTIFICATE",
+		Bytes: clientCert,
+	}))
+
+	// if ok := bridge.caCertPool.AppendCertsFromPEM([]byte(bridge.ClientCert)); !ok {
+	// 	return nil, fmt.Errorf("oh mama")
+	// }
+
+	bridge.ClientKey = string(pem.EncodeToMemory(&pem.Block{
+		Type:  "RSA PRIVATE KEY",
+		Bytes: x509.MarshalPKCS1PrivateKey(clientPriv),
+	}))
 
 	return
 }
