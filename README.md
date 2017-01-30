@@ -73,17 +73,25 @@ will be generated on the next run.
   transparently passes that through the bridge, so the SSH-Agent on
   the host machine can serve the signing requests.
 
-* Text-based secrets, multi-line files. Secrets representation support
-  on-the-fly base64-encoding (and URL-safe base64 encoding) with a
-  `b64:` and `b64u:` prefix to keys.
+* Binary safe secrets
 
-  Tell the server the key is already base64 encoded:
+* Supports multi-line files
 
-    secrets-bridge-server --secret b64:multilinekey=AAABCDEFG --secret theword=merde
+* On-the-fly base64 encoding and decoding of secrets, with `key` prefixes: `b64:` and `b64u:` for standard base64-encoding, and URL-safe encoding respectively.
+  * Querying a prefixed key encodes its output
+  * Setting a `key` (with `--secret b64:keyname=value`) will decode the passed-in `value` as base64, and store the original value, ready to be encoded upon query.
 
-  and consume it with:
+Encoding/decoding example:
 
-    curl http://localhost:9999/secrets/multilinekey  # non-base64 version of the secret, multiline
-    curl http://localhost:9999/secrets/b64u:multilinekey  # base64-url-safe version
-    curl http://localhost:9999/secrets/b64:multilinekey  # base64 standard version
-    curl http://localhost:9999/secrets/b64:theword  # base64-encoded "merde"
+```
+secrets-bridge-server --secret b64:multilinekey=AAABCDEFG --secret theword=merde
+```
+
+Consume with:
+
+```
+curl http://localhost:9999/secrets/multilinekey  # non-base64 version of the secret, multiline
+curl http://localhost:9999/secrets/b64u:multilinekey  # base64-url-safe version
+curl http://localhost:9999/secrets/b64:multilinekey  # base64 standard version
+curl http://localhost:9999/secrets/b64:theword  # base64-encoded "merde"
+```
