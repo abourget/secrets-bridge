@@ -9,7 +9,12 @@ runs.
 Also, you never want to have your credentials snapshotted in your
 Docker image.
 
-_Docker secrets bridge_ allows you to run a tiny server on your host as such:
+* It serves secrets defined on the host, either on the command-line or
+  loaded from files.
+* It acts as an SSH-Agent proxy, but secured through TLS, with
+  temporary and auto-generated keypairs.
+
+The _secrets bridge_ allows you to run a tiny server on your host as such:
 
     secrets-bridge-server serve --bridge-conf=bridge-conf \
                                 --ssh-agent-forwarder \
@@ -18,19 +23,20 @@ _Docker secrets bridge_ allows you to run a tiny server on your host as such:
                                 --secret-from-file key3=filename \
                                 --timeout=300 &
 
-and then, with a Dockerfile similar to this:
+and then, with a `Dockerfile` similar to this:
 
-    RUN wget https://some-location-with/secrets-bridge-server
+    RUN wget https://some-location-with/secrets-bridge-client
     ARG BRIDGE_CONF
     RUN secrets-bridge-client --bridge-conf=${BRIDGE_CONF} test
     RUN secrets-bridge-client --bridge-conf=${BRIDGE_CONF} exec --ssh-agent -- npm install
     RUN secrets-bridge-client --bridge-conf=${BRIDGE_CONF} exec --listen=9999 -- ./do_sensitive_things.sh
 
+
 run `docker build`:
 
     docker build --build-args BRIDGE_CONF=`cat bridge-conf` -t image/tag123 .
 
-and finish with:
+and, on the host, finish with:
 
     secrets-bridge-server kill --bridge-conf=bridge-conf
 
@@ -55,15 +61,15 @@ The `bridge-conf` file contains a base64-encoded version of:
     {"endpoints": ["https://127.0.0.1:12345", "https://192.168.0.6:12345", "https://172.17.0.1:12345", "https://192.168.99.1:12345"],
      "cacert": "------ BEGIN CERTIFICATE -----\n...",
      "client_cert": "----- BEGIN CERTIFICATE -----\n...",
-     "client_key": "----- BEGIN PRIVATE KEY -----\n..."}
+     "client_key": "----- BEGIN RSA PRIVATE KEY -----\n..."}
 
 It allows the `secrets-bridge-client` inside the build-time container,
 to communicate with the host, authenticate with the secrets server
 and obtain credentials that were passed on the command line.
 
 All of the information in this file is temporary and will vanish once
-the server terminates. A new self-signed CA and client cert/key pair
-will be generated on the next run.
+the server terminates. A self-signed CA and client cert/key pair is
+generated on each `serve` runs.
 
 
 ### Features
