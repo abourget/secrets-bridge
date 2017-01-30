@@ -13,23 +13,25 @@ import (
 )
 
 func NewClient(conf *bridge.Bridge) *Client {
+	tr := &http.Transport{
+		// similar to `http.DefaultTransport`, with additional `TLSConfig`.
+		Proxy: http.ProxyFromEnvironment,
+		DialContext: (&net.Dialer{
+			Timeout:   30 * time.Second,
+			KeepAlive: 30 * time.Second,
+		}).DialContext,
+		MaxIdleConns:          100,
+		IdleConnTimeout:       90 * time.Second,
+		TLSHandshakeTimeout:   10 * time.Second,
+		ExpectContinueTimeout: 1 * time.Second,
+		TLSClientConfig:       conf.ClientTLSConfig(),
+	}
 	return &Client{
 		conf: conf,
 		httpClient: &http.Client{
-			Transport: &http.Transport{
-				// similar to `http.DefaultTransport`, with additional `TLSConfig`.
-				Proxy: http.ProxyFromEnvironment,
-				DialContext: (&net.Dialer{
-					Timeout:   30 * time.Second,
-					KeepAlive: 30 * time.Second,
-				}).DialContext,
-				MaxIdleConns:          100,
-				IdleConnTimeout:       90 * time.Second,
-				TLSHandshakeTimeout:   10 * time.Second,
-				ExpectContinueTimeout: 1 * time.Second,
-				TLSClientConfig:       conf.ClientTLSConfig(),
-			},
+			Transport: tr,
 		},
+		httpTransport: tr,
 	}
 }
 
@@ -37,6 +39,7 @@ type Client struct {
 	conf           *bridge.Bridge
 	chosenEndpoint *url.URL
 	httpClient     *http.Client
+	httpTransport  *http.Transport
 }
 
 func (c *Client) Quit() error {
@@ -67,7 +70,16 @@ func (c *Client) GetSecretString(key string) (string, error) {
 }
 
 func (c *Client) RequestProxier() func(w http.ResponseWriter, r *http.Request) {
-	return httputil.NewSingleHostReverseProxy(c.chosenEndpoint).ServeHTTP
+	proxy := httputil.NewSingleHostReverseProxy(c.chosenEndpoint)
+	proxy.Transport = c.httpTransport
+	return proxy.ServeHTTP
+}
+
+func (c *Client) SSHAgentWebsocketURL() string {
+	if c.chosenEndpoint == nil {
+		return "https://please-call-ChooseEndpoint-first.../"
+	}
+	return c.chosenEndpoint.String() + "/ssh-agent-forwarder"
 }
 
 func (c *Client) ChooseEndpoint() (err error) {
@@ -99,6 +111,10 @@ func (c *Client) ChooseEndpoint() (err error) {
 }
 
 func (c *Client) doRequest(method string, path string) ([]byte, error) {
+	if c.chosenEndpoint == nil {
+		return nil, fmt.Errorf("endpoint not configured, have you called ChooseEndpoint() first ?")
+	}
+
 	dest := c.chosenEndpoint.String() + path
 	req, err := http.NewRequest(method, dest, nil)
 	if err != nil {

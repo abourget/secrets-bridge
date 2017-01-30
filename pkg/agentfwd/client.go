@@ -9,13 +9,14 @@ import (
 	"golang.org/x/net/websocket"
 )
 
-func ListenAndServeSSHAgentForwarder(targetServer, websocketOrigin string, tlsConfig *tls.Config) error {
-	unixSocket := "/tmp/secrets-bridge-ssh-agent-forwarder"
-	listener, err := net.ListenUnix("unix", &net.UnixAddr{Name: unixSocket, Net: "unix"})
+var UnixSocket = "/tmp/secrets-bridge-ssh-agent-forwarder"
+
+func ListenAndServeSSHAgentForwarder(targetURL, websocketOrigin string, tlsConfig *tls.Config) error {
+	listener, err := net.ListenUnix("unix", &net.UnixAddr{Name: UnixSocket, Net: "unix"})
 	if err != nil {
 		return err
 	}
-	defer os.Remove(unixSocket)
+	defer os.Remove(UnixSocket)
 
 	for {
 		conn, err := listener.AcceptUnix()
@@ -26,7 +27,7 @@ func ListenAndServeSSHAgentForwarder(targetServer, websocketOrigin string, tlsCo
 		go func() {
 			defer conn.Close()
 
-			config, err := websocket.NewConfig(targetServer, websocketOrigin)
+			config, err := websocket.NewConfig(targetURL, websocketOrigin)
 			if err != nil {
 				log.Println("couldn't configure websocket connection:", err)
 				return

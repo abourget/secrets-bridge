@@ -32,6 +32,10 @@ to quickly create a Cobra application.`,
 		}
 
 		c := client.NewClient(bridge)
+		if err := c.ChooseEndpoint(); err != nil {
+			log.Fatalln("error pinging server:", err)
+		}
+
 		err = c.Quit()
 		if err != nil {
 			log.Fatalln("error killing previous server:", err)

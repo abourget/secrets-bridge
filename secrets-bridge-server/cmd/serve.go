@@ -132,7 +132,10 @@ func serve(cmd *cobra.Command, args []string) {
 	mux.HandleFunc("/quit", func(w http.ResponseWriter, r *http.Request) {
 		log.Println("Received QUIT, quitting...")
 		w.Write([]byte("quitting..."))
-		os.Exit(0)
+		go func() {
+			time.Sleep(10 * time.Millisecond)
+			os.Exit(0)
+		}()
 	})
 	if enableSSHAgent {
 		log.Println("Enabling SSH-Agent forwarding handler")

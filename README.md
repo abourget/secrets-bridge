@@ -23,8 +23,8 @@ and then, with a Dockerfile similar to this:
     RUN wget https://some-location-with/secrets-bridge-server
     ARG BRIDGE_CONF
     RUN secrets-bridge-client --bridge-conf=${BRIDGE_CONF} test
-    RUN secrets-bridge-client --bridge-conf=${BRIDGE_CONF} bridge --ssh-agent -- npm install
-    RUN secrets-bridge-client --bridge-conf=${BRIDGE_CONF} bridge --listen=9999 -- ./do_sensitive_things.sh
+    RUN secrets-bridge-client --bridge-conf=${BRIDGE_CONF} exec --ssh-agent -- npm install
+    RUN secrets-bridge-client --bridge-conf=${BRIDGE_CONF} exec --listen=9999 -- ./do_sensitive_things.sh
 
 run `docker build`:
 
