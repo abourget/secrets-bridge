@@ -39,7 +39,7 @@ to terminate the server.
 An example of a `do_sensitive_things.sh` file could be:
 
     #!/bin/bash
-    PASSWORD=$(curl http://localhost:9999/secret/key)
+    PASSWORD=$(curl http://localhost:9999/secrets/key)
     echo $PASSWORD | curl -u username https://secure.example.com/private-package.tgz -O /root/private-package.tgz
 
 With the `--listen=9999` option, `secrets-bridge-client` will listen
