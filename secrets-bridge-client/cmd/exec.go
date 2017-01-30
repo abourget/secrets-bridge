@@ -92,7 +92,7 @@ secrets-bridge-client --bridge-conf=$BRIDGE_CONF exec
 
 		log.Printf("secrets-bridge: Calling subprocess with: %q\n", args)
 		subErr := subprocess.Run()
-		log.Printf("secrets-bridge: Call returned, exited with: %s\n", err)
+		log.Printf("secrets-bridge: Call returned, exited with: %s\n", subErr)
 
 		if enableSSHAgentForwarding {
 			os.Remove(agentfwd.UnixSocket)

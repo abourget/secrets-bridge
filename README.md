@@ -72,6 +72,20 @@ the server terminates. A self-signed CA and client cert/key pair is
 generated on each `serve` runs.
 
 
+### Installation
+
+Download and install [https://golang.org/dl](Golang).  Install with:
+
+```
+go get github.com/abourget/secrets-bridge/...
+```
+
+This will build both `secrets-bridge-server` and
+`secrets-bridge-client`.  You will need a Linux amd64 version for
+inside the containers. I'll soon release binaries in the GitHub
+releases for quick download.
+
+
 ### Features
 
 * SSH-Agent forwarding. The `client` sets the `SSH_AUTH_SOCK`
