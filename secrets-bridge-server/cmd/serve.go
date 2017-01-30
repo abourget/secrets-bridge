@@ -93,12 +93,6 @@ func serve(cmd *cobra.Command, args []string) {
 	}
 	log.Printf("Loaded %d secrets\n", len(store.Secrets))
 
-	// code the agentfwd/server.go part, litsening for the websocket, and forwarding
-	// the stuff to SSH_AUTH_SOCK
-	// depending on `-A`, setup the websocket endpoint.
-
-	// Generate the client key+cert, signed with the CA internally..
-
 	mux := http.NewServeMux()
 	mux.HandleFunc("/secrets/", func(w http.ResponseWriter, r *http.Request) {
 		matches := secretsRE.FindStringSubmatch(r.URL.Path)
@@ -167,11 +161,6 @@ func serve(cmd *cobra.Command, args []string) {
 	}
 
 	<-done
-
-	// handler("GET", "/secrets/:key")
-	// handler("POST", "/ssh-agent-forwarder")
-
-	// listen for a `--timeout` and exit on timeout.. or not..
 }
 
 var secretsRE = regexp.MustCompile(`/secrets/(.+)`)
