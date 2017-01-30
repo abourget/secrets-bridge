@@ -95,3 +95,9 @@ curl http://localhost:9999/secrets/b64u:multilinekey  # base64-url-safe version
 curl http://localhost:9999/secrets/b64:multilinekey  # base64 standard version
 curl http://localhost:9999/secrets/b64:theword  # base64-encoded "merde"
 ```
+
+
+### Roadmap
+
+* `--secret-to-file key=output_filename` to write files temporarily on
+  `exec`, and clean-up after, before the next Docker layer snapshot.
