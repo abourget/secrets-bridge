@@ -88,12 +88,12 @@ func (c *Client) ChooseEndpoint() (err error) {
 		dest := fmt.Sprintf("%s/ping", endpoint)
 		req, err := http.NewRequest("GET", dest, nil)
 		if err != nil {
-			fmt.Println("ChoosenEndpoint NewRequest:", err)
+			//fmt.Println("ChoosenEndpoint NewRequest:", err)
 			continue
 		}
 		resp, err := c.httpClient.Do(req)
 		if err != nil {
-			fmt.Println("ChoosenEndpoint Do request:", err)
+			//fmt.Println("ChoosenEndpoint Do request:", err)
 			continue
 		}
 		resp.Body.Close()
@@ -107,7 +107,7 @@ func (c *Client) ChooseEndpoint() (err error) {
 
 		return nil
 	}
-	return fmt.Errorf("none found")
+	return fmt.Errorf("no valid endpoints found, tried: %q", c.conf.Endpoints)
 }
 
 func (c *Client) doRequest(method string, path string) ([]byte, error) {
