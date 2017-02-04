@@ -3,10 +3,12 @@ package client
 import (
 	"fmt"
 	"io/ioutil"
+	"log"
 	"net"
 	"net/http"
 	"net/http/httputil"
 	"net/url"
+	"sync"
 	"time"
 
 	"github.com/abourget/secrets-bridge/pkg/bridge"
@@ -83,31 +85,52 @@ func (c *Client) SSHAgentWebsocketURL() string {
 }
 
 func (c *Client) ChooseEndpoint() (err error) {
-	var endpoint string
-	for _, endpoint = range c.conf.Endpoints {
-		dest := fmt.Sprintf("%s/ping", endpoint)
-		req, err := http.NewRequest("GET", dest, nil)
-		if err != nil {
-			//fmt.Println("ChoosenEndpoint NewRequest:", err)
-			continue
-		}
-		resp, err := c.httpClient.Do(req)
-		if err != nil {
-			//fmt.Println("ChoosenEndpoint Do request:", err)
-			continue
-		}
-		resp.Body.Close()
+	chosenEndpoint := make(chan *url.URL, len(c.conf.Endpoints))
+	wg := sync.WaitGroup{}
+	for _, endpoint := range c.conf.Endpoints {
+		wg.Add(1)
+		endpoint := endpoint
+		go func() {
+			defer wg.Done()
 
-		target, err := url.Parse(endpoint)
-		if err != nil {
-			return err
-		}
+			dest := fmt.Sprintf("%s/ping", endpoint)
+			req, err := http.NewRequest("GET", dest, nil)
+			if err != nil {
+				//fmt.Println("ChoosenEndpoint NewRequest:", err)
+				return
+			}
+			resp, err := c.httpClient.Do(req)
+			if err != nil {
+				//fmt.Println("ChoosenEndpoint Do request:", err)
+				return
+			}
+			resp.Body.Close()
 
-		c.chosenEndpoint = target
+			target, err := url.Parse(endpoint)
+			if err != nil {
+				log.Println("Error in URL format in endpoints list:", err)
+				return
+			}
 
-		return nil
+			chosenEndpoint <- target
+		}()
+
 	}
-	return fmt.Errorf("no valid endpoints found, tried: %q", c.conf.Endpoints)
+	go func() {
+		wg.Wait()
+		chosenEndpoint <- nil
+	}()
+
+	select {
+	case recv := <-chosenEndpoint:
+		if recv == nil {
+			return fmt.Errorf("no valid endpoints found, tried: %q", c.conf.Endpoints)
+		}
+		c.chosenEndpoint = recv
+	}
+
+	return nil
+
 }
 
 func (c *Client) doRequest(method string, path string) ([]byte, error) {

@@ -15,10 +15,12 @@ func ioCopyWS(src *websocket.Conn, dst io.Writer) (int, error) {
 	for {
 		err := websocket.Message.Receive(src, &buffer)
 		if err != nil {
+			// fmt.Println("ioCopyWS EOF")
 			return count, err
 		}
 		n := len(buffer)
 		count += n
+		// fmt.Println("ioCopyWS:", buffer)
 		i, err := dst.Write(buffer)
 		if err != nil || i < 1 {
 			return count, err
@@ -34,13 +36,14 @@ func ioWSCopy(src io.Reader, dst *websocket.Conn) (int, error) {
 	for {
 		n, err := src.Read(buffer)
 		if err != nil || n < 1 {
+			// fmt.Println("ioWSCopy EOF")
 			return count, err
 		}
 		count += n
+		// fmt.Println("ioWSCopy:", buffer[0:n])
 		err = websocket.Message.Send(dst, buffer[0:n])
 		if err != nil {
 			return count, err
 		}
 	}
-	//return count, nil
 }

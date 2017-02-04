@@ -3,16 +3,12 @@ package agentfwd
 import (
 	"fmt"
 	"log"
-	"net"
-	"os"
 
 	"golang.org/x/net/websocket"
 )
 
-var unixSocket = os.Getenv("SSH_AUTH_SOCK")
-
 func TestSSHAgentConnectivity() error {
-	client, err := net.Dial("unix", unixSocket)
+	client, err := DialAgent()
 	if err != nil {
 		return err
 	}
@@ -21,7 +17,7 @@ func TestSSHAgentConnectivity() error {
 
 func HandleSSHAgentForward(ws *websocket.Conn) {
 	fmt.Println("Serving SSH-Agent forward")
-	client, err := net.Dial("unix", unixSocket)
+	client, err := DialAgent()
 	if err != nil {
 		log.Println("Can't connect to SSH-Agent:", err)
 		return
