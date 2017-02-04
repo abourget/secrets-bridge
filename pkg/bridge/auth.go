@@ -79,11 +79,14 @@ func (b *Bridge) ClientTLSConfig() *tls.Config {
 	return c
 }
 
-func (b *Bridge) ServerTLSConfig() *tls.Config {
+func (b *Bridge) ServerTLSConfig(insecure bool) *tls.Config {
 	c := &tls.Config{
 		Certificates: []tls.Certificate{b.caTLSCert}, // populated through `NewBridge`
 		ClientCAs:    b.caCertPool,
 		ClientAuth:   tls.RequireAndVerifyClientCert,
+	}
+	if insecure {
+		c.ClientAuth = tls.VerifyClientCertIfGiven
 	}
 	c.BuildNameToCertificate()
 	return c
