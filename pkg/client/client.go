@@ -108,7 +108,7 @@ func (c *Client) ChooseEndpoint() (err error) {
 
 			target, err := url.Parse(endpoint)
 			if err != nil {
-				log.Println("Error in URL format in endpoints list:", err)
+				log.Println("secrets-bridge: Error in URL format in endpoints list:", err)
 				return
 			}
 

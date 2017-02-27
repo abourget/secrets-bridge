@@ -1,7 +1,6 @@
 package agentfwd
 
 import (
-	"fmt"
 	"log"
 
 	"golang.org/x/net/websocket"
@@ -16,10 +15,10 @@ func TestSSHAgentConnectivity() error {
 }
 
 func HandleSSHAgentForward(ws *websocket.Conn) {
-	fmt.Println("Serving SSH-Agent forward")
+	log.Println("secrets-bridge-server: Serving SSH-Agent forward")
 	client, err := DialAgent()
 	if err != nil {
-		log.Println("Can't connect to SSH-Agent:", err)
+		log.Println("secrets-bridge-server: Can't connect to SSH-Agent:", err)
 		return
 	}
 	defer client.Close()
