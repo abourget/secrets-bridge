@@ -33,6 +33,7 @@ to quickly create a Cobra application.`,
 	Run: serve,
 }
 
+var caKeyStore string
 var secretLiterals []string
 var secretsFromFiles []string
 var enableSSHAgent bool
@@ -42,6 +43,7 @@ var insecureMode bool
 func init() {
 	RootCmd.AddCommand(serveCmd)
 
+	serveCmd.Flags().StringVarP(&caKeyStore, "ca-key-store", "", "", "Filenam where to read/store the CA Key if you want to reuse, to avoid changing the bridge conf, thus avoiding Docker rebuilds.")
 	serveCmd.Flags().BoolVarP(&enableSSHAgent, "ssh-agent-forwarder", "A", false, "Enable SSH Agent forwarder. Uses env's SSH_AUTH_SOCK.")
 	serveCmd.Flags().StringSliceVar(&secretLiterals, "secret", []string{}, "Literal secret, in the form `key=value`. 'key' can be prefixed by 'b64:' or 'b64u:' to denote that the 'value' is base64-encoded or base64-url-encoded")
 	serveCmd.Flags().StringSliceVar(&secretsFromFiles, "secret-from-file", []string{}, "Secret from the content of a file, in the form `key=filename`. 'key' can also be prefixed by 'b64:' and 'b64u:' to indicate the encoding of the file")
@@ -50,17 +52,29 @@ func init() {
 }
 
 func serve(cmd *cobra.Command, args []string) {
-	b, err := bridge.NewBridge()
-	if err != nil {
-		log.Fatalln("Failed to setup bridge:", err)
+	var b *bridge.Bridge
+	var err error
+	if caKeyStore != "" {
+		b, err = bridge.NewCachedBridge(caKeyStore, bridgeConfFilename)
+		if err != nil {
+			log.Println("WARNING: couldn't load configuration from provided --ca-key-store:", err)
+			b = nil
+		}
 	}
 
-	jsonConfig, _ := json.Marshal(b)
+	if b == nil {
+		b, err = bridge.NewBridge(caKeyStore)
+		if err != nil {
+			log.Fatalln("Failed to setup bridge:", err)
+		}
 
-	log.Printf("Writing %q\n", bridgeConfFilename)
-	err = ioutil.WriteFile(bridgeConfFilename, []byte(base64.StdEncoding.EncodeToString(jsonConfig)), 0600)
-	if err != nil {
-		log.Fatalf("Error writing %q: %s\n", bridgeConfFilename, err)
+		jsonConfig, _ := json.Marshal(b)
+
+		log.Printf("Writing %q\n", bridgeConfFilename)
+		err = ioutil.WriteFile(bridgeConfFilename, []byte(base64.StdEncoding.EncodeToString(jsonConfig)), 0600)
+		if err != nil {
+			log.Fatalf("Error writing %q: %s\n", bridgeConfFilename, err)
+		}
 	}
 
 	// Read secrets

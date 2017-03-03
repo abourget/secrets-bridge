@@ -8,23 +8,54 @@ import (
 	"crypto/x509/pkix"
 	"encoding/pem"
 	"fmt"
+	"io/ioutil"
+	"log"
 	"math/big"
 	"net"
 	"strings"
 	"time"
 )
 
+func NewCachedBridge(caKeyStore, bridgeConfFilename string) (bridge *Bridge, err error) {
+	bridgeConf, err := ioutil.ReadFile(bridgeConfFilename)
+	if err != nil {
+		return nil, err
+	}
+
+	bridge, err = NewFromString(string(bridgeConf))
+	if err != nil {
+		return
+	}
+
+	listener, err := net.Listen("tcp", ":0")
+	if err != nil {
+		return
+	}
+
+	bridge.Listener = listener
+
+	caKey, err := ioutil.ReadFile(caKeyStore)
+	if err != nil {
+		return
+	}
+
+	bridge.caTLSCert, err = tls.X509KeyPair([]byte(bridge.CACert), caKey)
+	if err != nil {
+		return
+	}
+
+	return
+}
+
 // NewBridge generates all that is needed to serve a bridge. It generates crypto material (ca cert+key and client cert+key), creates the listener, lists the available IPs.
-func NewBridge() (bridge *Bridge, err error) {
+func NewBridge(caKeyStore string) (bridge *Bridge, err error) {
 	bridge = &Bridge{}
 
-	// Gather IPs
 	ips, err := GetAllIPs()
 	if err != nil {
 		return
 	}
 
-	// Setup Listener
 	listener, err := net.Listen("tcp", ":0")
 	if err != nil {
 		return
@@ -81,6 +112,13 @@ func NewBridge() (bridge *Bridge, err error) {
 		Type:  "RSA PRIVATE KEY",
 		Bytes: x509.MarshalPKCS1PrivateKey(privKey),
 	})
+
+	if caKeyStore != "" {
+		log.Println("Writing ca key store", caKeyStore)
+		if err = ioutil.WriteFile(caKeyStore, []byte(caKey), 0600); err != nil {
+			return
+		}
+	}
 
 	bridge.caTLSCert, err = tls.X509KeyPair([]byte(bridge.CACert), caKey)
 	if err != nil {
