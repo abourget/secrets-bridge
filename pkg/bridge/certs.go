@@ -27,7 +27,15 @@ func NewCachedBridge(caKeyStore, bridgeConfFilename string) (bridge *Bridge, err
 		return
 	}
 
-	listener, err := net.Listen("tcp", ":0")
+	if len(bridge.Endpoints) == 0 {
+		return nil, fmt.Errorf("no endpoints listed in cached bridge conf, can't listen on the same port")
+	}
+
+	firstEndpoint := bridge.Endpoints[0]
+	segments := strings.Split(firstEndpoint, ":")
+	listenPort := segments[len(segments)-1]
+
+	listener, err := net.Listen("tcp", ":"+listenPort)
 	if err != nil {
 		return
 	}
