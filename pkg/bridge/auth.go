@@ -15,7 +15,7 @@ type Bridge struct {
 
 	CACert     string `json:"ca_cert"`
 	caCertPool *x509.CertPool
-	caKey      []byte `json:"-"`
+	caKey      []byte
 	caTLSCert  tls.Certificate
 
 	ClientCert    string `json:"client_cert"`

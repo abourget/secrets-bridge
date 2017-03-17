@@ -121,3 +121,5 @@ curl http://localhost:9999/secrets/b64:theword  # base64-encoded "merde"
 
 * `--secret-to-file key=output_filename` to write files temporarily on
   `exec`, and clean-up after, before the next Docker layer snapshot.
+* Implement `client -w CONF download file.key`..
+* Implement `server --secret-from-file=[filename_only]`, reads the file and sets the key at the same time.
