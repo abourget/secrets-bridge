@@ -14,31 +14,55 @@ Docker image.
 * It acts as an SSH-Agent proxy, but secured through TLS, with
   temporary and auto-generated keypairs.
 
-New version
------------
+## Basic usage
 
-secrets-bridge serve
-# Serves the SSH Agent, with no secret keys. Useful on the otherwise with `secrets-bridge exec yarn`.
-secrets-bridge serve --no-agent --secret key=value
-# Prints out the bridge conf..
-secrets-bridge exec -e THE_VALUE=key -- yarn
-# Uses the bridge conf in `~/.bridge-conf` by default, can use the one via command-line with `--bridge-conf=BASE64STUFF`... Does the SSH agent forwarding automatically, on a random port anyway, won't do anything if the server doesn't serve it anyway.
-# It fetches the `-e` and injects environment variables, instead of asking the client to fetch them.
-secrets-bridge print key
-# Reads the value stored in `bridge-conf`'s key and prints it out.
-secrets-bridge test
-# Tests the `bridge-conf` connection..
+Serves the SSH Agent, with no secret keys. Prints the bridge config to stdout, so you can bring it to the other node by **copy & pasting**:
 
+    secrets-bridge serve -A
+
+Execute `yarn` (or `npm install` or whatever) and leverage the SSH Agent from the remote host automatically:
+
+    secrets-bridge exec -c [pasted-base64-configuration-from-host-a] yarn
+
+Serve only the secret `key`, no SSH Agent forwarding:
+
+    secrets-bridge serve --secret key=value
+
+Serve `key1` taking its value from `filename1` and serve `filename2` as key `filename2`:
+
+    secrets-bridge serve --secret-from-file key1=filename1 --secret-from-file filename2
+
+Prints out secret `key`. This will use the default bridge configuration file at `~/.bridge-conf` (unless you specify an explicit config as b64 with `-c`):
+
+    secrets-bridge print key
+
+Execute `my-command.sh` with the env var `THE_VALUE` set to the value of the secret `key`:
+
+    secrets-bridge exec -e THE_VALUE=key -- my-command.sh
+
+This one prints the secret but encodes it to base64 first (see below for other variations):
+
+    secrets-bridge print b64:key
+
+You can also serve a secret that is already base64 encoded, as plain-text:
+
+    secrets-bridge serve -w --secret b64:key=aGVsbG8td29ybGQK
+    ...
+    secrets-bridge print key
+    hello-world
+
+
+## Usage with Docker
 
 The _secrets bridge_ allows you to run a tiny server on your host as such:
 
-    secrets-bridge-server serve -f ./bridge-conf \
-                                -w \
-                                --ssh-agent-forwarder \
-                                --secret key=value \
-                                --secret key2=value2 \
-                                --secret-from-file key3=filename \
-                                --timeout=300 &
+    secrets-bridge serve -f ./bridge-conf \
+                         -w \
+                         --ssh-agent-forwarder \
+                         --secret key=value \
+                         --secret key2=value2 \
+                         --secret-from-file key3=filename \
+                         --timeout=300 &
 
 and then, with a `Dockerfile` similar to this:
 
@@ -71,7 +95,29 @@ copy your `~/.bridge-conf` to the other location's `~/.bridge-conf` and then run
 over there.
 
 
-### The `bridge-conf` file
+## Base64 encoding
+
+On-the-fly base64 encoding **and** decoding of secrets.
+
+Prefix secrets with:
+
+  * `b64:` for standard base64-
+  * `b64u:` for URL-safe base64 codec.
+  * `rb64:` for padding-less standard base64 codec.
+  * `rb64u:` for padding-less URL-safe base64 codec.
+
+Secrets are binary-safe and support multi-line files.
+
+
+## SSH-Agent forwarding
+
+The `client` sets the `SSH_AUTH_SOCK` environment variable when
+calling the sub-processes, and transparently passes that through the
+bridge, so the SSH-Agent on the host machine can serve the signing
+requests.
+
+
+## The `bridge-conf` file
 
 The `bridge-conf` file contains a base64-encoded version of:
 
@@ -89,7 +135,7 @@ the server terminates. A self-signed CA and client cert/key pair is
 generated on each `serve` runs.
 
 
-### Installation
+# Installation
 
 Download and install [https://golang.org/dl](Golang).  Install with:
 
@@ -100,42 +146,3 @@ go get github.com/abourget/secrets-bridge
 This will build the `secrets-bridge` binary.  You will need a Linux
 amd64 version for inside the containers. I'll soon release binaries in
 the GitHub releases for quick download.
-
-
-### Features
-
-* SSH-Agent forwarding. The `client` sets the `SSH_AUTH_SOCK`
-  environment variable when calling the sub-processes, and
-  transparently passes that through the bridge, so the SSH-Agent on
-  the host machine can serve the signing requests.
-
-* Binary safe secrets
-
-* Supports multi-line files
-
-* On-the-fly base64 encoding and decoding of secrets, with `key` prefixes: `b64:` and `b64u:` for standard base64-encoding, and URL-safe encoding respectively.
-  * Querying a prefixed key encodes its output
-  * Setting a `key` (with `--secret b64:keyname=value`) will decode the passed-in `value` as base64, and store the original value, ready to be encoded upon query.
-
-Encoding/decoding example:
-
-```
-secrets-bridge-server --secret b64:multilinekey=AAABCDEFG --secret theword=merde
-```
-
-Consume with:
-
-```
-curl http://localhost:9999/secrets/multilinekey  # non-base64 version of the secret, multiline
-curl http://localhost:9999/secrets/b64u:multilinekey  # base64-url-safe version
-curl http://localhost:9999/secrets/b64:multilinekey  # base64 standard version
-curl http://localhost:9999/secrets/b64:theword  # base64-encoded "merde"
-```
-
-
-### Roadmap
-
-* `--secret-to-file key=output_filename` to write files temporarily on
-  `exec`, and clean-up after, before the next Docker layer snapshot.
-* Implement `client -w CONF download file.key`..
-* Implement `server --secret-from-file=[filename_only]`, reads the file and sets the key at the same time.
