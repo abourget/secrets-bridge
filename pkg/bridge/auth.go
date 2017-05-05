@@ -43,6 +43,8 @@ func NewFromDefaultConfig() (bridge *Bridge, err error) {
 func NewFromString(conf string) (bridge *Bridge, err error) {
 	var content []byte
 
+	conf = strings.TrimSpace(conf)
+
 	if strings.HasPrefix(conf, "{") {
 		content = []byte(conf)
 	} else {
