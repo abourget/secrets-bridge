@@ -13,17 +13,13 @@ import (
 // killCmd represents the kill command
 var killCmd = &cobra.Command{
 	Use:   "kill",
-	Short: "A brief description of your command",
-	Long: `A longer description that spans multiple lines and likely contains examples
-and usage of using your command. For example:
-
-Cobra is a CLI library for Go that empowers applications.
-This application is a tool to generate the needed files
-to quickly create a Cobra application.`,
+	Short: "Kills the remote bridge server",
+	Long:  ``,
 	Run: func(cmd *cobra.Command, args []string) {
-		bridgeConf, err := ioutil.ReadFile(bridgeConfFilename)
+		confFile := bridgeConfFilenameWithDefault()
+		bridgeConf, err := ioutil.ReadFile(confFile)
 		if err != nil {
-			log.Fatalln("reading %q: %s", bridgeConfFilename, err)
+			log.Fatalln("reading %q: %s", confFile, err)
 		}
 
 		bridge, err := bridge.NewFromString(string(bridgeConf))

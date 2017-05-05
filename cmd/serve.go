@@ -23,14 +23,9 @@ import (
 // serveCmd represents the serve command
 var serveCmd = &cobra.Command{
 	Use:   "serve",
-	Short: "A brief description of your command",
-	Long: `A longer description that spans multiple lines and likely contains examples
-and usage of using your command. For example:
-
-Cobra is a CLI library for Go that empowers applications.
-This application is a tool to generate the needed files
-to quickly create a Cobra application.`,
-	Run: serve,
+	Short: "Serves an SSH Agent forwarder over the network, and secrets",
+	Long:  ``,
+	Run:   serve,
 }
 
 var caKeyStore string
@@ -39,9 +34,13 @@ var secretsFromFiles []string
 var enableSSHAgent bool
 var timeout int
 var insecureMode bool
+var writeConf bool
 
 func init() {
 	RootCmd.AddCommand(serveCmd)
+
+	serveCmd.Flags().StringVarP(&bridgeConfFilename, "bridge-conf-file", "f", "", "Bridge authentication file. Written to in serve command, read in kill command. Defaults to `~/.bridge-conf`")
+	serveCmd.Flags().BoolVarP(&writeConf, "write-conf", "w", false, "Write the bridge config to a file instead of printing out. Specify file with '--bridge-conf-file'.")
 
 	serveCmd.Flags().StringVarP(&caKeyStore, "ca-key-store", "", "", "Filenam where to read/store the CA Key if you want to reuse, to avoid changing the bridge conf, thus avoiding Docker rebuilds.")
 	serveCmd.Flags().BoolVarP(&enableSSHAgent, "ssh-agent-forwarder", "A", false, "Enable SSH Agent forwarder. Uses env's SSH_AUTH_SOCK.")
@@ -52,10 +51,11 @@ func init() {
 }
 
 func serve(cmd *cobra.Command, args []string) {
+	confFile := bridgeConfFilenameWithDefault()
 	var b *bridge.Bridge
 	var err error
 	if caKeyStore != "" {
-		b, err = bridge.NewCachedBridge(caKeyStore, bridgeConfFilename)
+		b, err = bridge.NewCachedBridge(caKeyStore, confFile)
 		if err != nil {
 			log.Println("WARNING: couldn't load configuration from provided --ca-key-store:", err)
 			b = nil
@@ -70,10 +70,15 @@ func serve(cmd *cobra.Command, args []string) {
 
 		jsonConfig, _ := json.Marshal(b)
 
-		log.Printf("Writing %q\n", bridgeConfFilename)
-		err = ioutil.WriteFile(bridgeConfFilename, []byte(base64.StdEncoding.EncodeToString(jsonConfig)), 0600)
-		if err != nil {
-			log.Fatalf("Error writing %q: %s\n", bridgeConfFilename, err)
+		bridgeConfText := base64.StdEncoding.EncodeToString(jsonConfig)
+		if writeConf {
+			log.Printf("Writing bridge conf to %q\n", confFile)
+			err = ioutil.WriteFile(confFile, []byte(bridgeConfText), 0600)
+			if err != nil {
+				log.Fatalf("Error writing %q: %s\n", confFile, err)
+			}
+		} else {
+			log.Printf("Bridge config: %s\n", bridgeConfText)
 		}
 	}
 
@@ -82,7 +87,7 @@ func serve(cmd *cobra.Command, args []string) {
 	for _, secret := range secretLiterals {
 		parts := strings.SplitN(secret, "=", 2)
 		if len(parts) != 2 {
-			log.Fatalf(`Invalid secret literal, expected format "key=value", got %q\n`, secret)
+			log.Fatalf(`Invalid secret literal, expected format "key=filename", or "filename" got %q\n`, secret)
 		}
 		err := store.Add(parts[0], []byte(parts[1]))
 		if err != nil {
@@ -92,11 +97,16 @@ func serve(cmd *cobra.Command, args []string) {
 
 	for _, secret := range secretsFromFiles {
 		parts := strings.SplitN(secret, "=", 2)
-		if len(parts) != 2 {
+		if len(parts) > 2 {
 			log.Fatalf(`Invalid secret from file, expected format "key=filename", got %q\n`, secret)
 		}
 
-		filename := parts[1]
+		var filename string
+		if len(parts) == 1 {
+			filename = parts[0]
+		} else {
+			filename = parts[1]
+		}
 		fileContent, err := ioutil.ReadFile(filename)
 		if err != nil {
 			log.Fatalf(`Error reading file %q for secret-from-file %q: %s\n`, filename, secret, err)
@@ -150,6 +160,8 @@ func serve(cmd *cobra.Command, args []string) {
 	if enableSSHAgent {
 		log.Println("Enabling SSH-Agent forwarding handler")
 		mux.Handle("/ssh-agent-forwarder", websocket.Handler(agentfwd.HandleSSHAgentForward))
+	} else {
+		log.Println("SSH-Agent forwarder IS NOT ENABLED. Use -A to enable it.")
 	}
 
 	server := http.Server{

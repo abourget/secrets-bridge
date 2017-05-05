@@ -16,8 +16,8 @@ import (
 	"time"
 )
 
-func NewCachedBridge(caKeyStore, bridgeConfFilename string) (bridge *Bridge, err error) {
-	bridgeConf, err := ioutil.ReadFile(bridgeConfFilename)
+func NewCachedBridge(caKeyStore, confFile string) (bridge *Bridge, err error) {
+	bridgeConf, err := ioutil.ReadFile(confFile)
 	if err != nil {
 		return nil, err
 	}
@@ -138,7 +138,7 @@ func NewBridge(caKeyStore string) (bridge *Bridge, err error) {
 		SerialNumber: big.NewInt(2),
 		Subject: pkix.Name{
 			Organization: []string{"secrets-bridge"},
-			CommonName:   "secrets-bridge-client",
+			CommonName:   "secrets-bridge",
 		},
 		NotBefore:   time.Now(),
 		NotAfter:    time.Now().Add(1 * time.Hour),

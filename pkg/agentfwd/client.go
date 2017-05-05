@@ -28,14 +28,14 @@ func ListenAndServeSSHAgentForwarder(targetURL, websocketOrigin string, tlsConfi
 			return err
 		}
 
-		log.Println("secrets-bridge-client: Received connection on SSH-Agent unix socket")
+		log.Println("secrets-bridge: Received connection on SSH-Agent unix socket")
 
 		go func() {
 			defer conn.Close()
 
 			config, err := websocket.NewConfig(targetURL, websocketOrigin)
 			if err != nil {
-				log.Println("secrets-bridge-client: couldn't configure websocket connection:", err)
+				log.Println("secrets-bridge: couldn't configure websocket connection:", err)
 				return
 			}
 
@@ -43,7 +43,7 @@ func ListenAndServeSSHAgentForwarder(targetURL, websocketOrigin string, tlsConfi
 
 			ws, err := websocket.DialConfig(config)
 			if err != nil {
-				log.Println("secrets-bridge-client: couldn't connect to websocket:", err)
+				log.Println("secrets-bridge: ssh-forward failed (is it started on server?):", err)
 				return
 			}
 			defer ws.Close()

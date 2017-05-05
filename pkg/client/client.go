@@ -1,11 +1,11 @@
 package client
 
 import (
+	"crypto/tls"
 	"fmt"
 	"io/ioutil"
 	"log"
 	"net/http"
-	"net/http/httputil"
 	"net/url"
 	"sync"
 	"time"
@@ -41,6 +41,10 @@ func (c *Client) Quit() error {
 	return err
 }
 
+func (c *Client) ClientTLSConfig() *tls.Config {
+	return c.httpTransport.TLSClientConfig
+}
+
 func (c *Client) Ping() error {
 	resp, err := c.doRequest("GET", "/ping")
 	if string(resp) != "v1" {
@@ -61,12 +65,6 @@ func (c *Client) GetSecretString(key string) (string, error) {
 		return "", err
 	}
 	return string(resp), nil
-}
-
-func (c *Client) RequestProxier() func(w http.ResponseWriter, r *http.Request) {
-	proxy := httputil.NewSingleHostReverseProxy(c.chosenEndpoint)
-	proxy.Transport = c.httpTransport
-	return proxy.ServeHTTP
 }
 
 func (c *Client) SSHAgentWebsocketURL() string {

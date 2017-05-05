@@ -7,7 +7,11 @@ import (
 	"encoding/json"
 	"encoding/pem"
 	"fmt"
+	"io/ioutil"
 	"net"
+	"os"
+	"path/filepath"
+	"strings"
 )
 
 type Bridge struct {
@@ -25,10 +29,31 @@ type Bridge struct {
 	Listener net.Listener `json:"-"`
 }
 
-func NewFromString(b64conf string) (bridge *Bridge, err error) {
-	content, err := base64.StdEncoding.DecodeString(b64conf)
+func NewFromDefaultConfig() (bridge *Bridge, err error) {
+	filename := filepath.Join(os.Getenv("HOME"), ".bridge-conf")
+
+	cnt, err := ioutil.ReadFile(filename)
 	if err != nil {
-		return nil, fmt.Errorf("decoding base64 input: %s", err)
+		return nil, fmt.Errorf("couldn't read %q", filename)
+	}
+
+	return NewFromString(string(cnt))
+}
+
+func NewFromString(conf string) (bridge *Bridge, err error) {
+	var content []byte
+
+	if strings.HasPrefix(conf, "{") {
+		content = []byte(conf)
+	} else {
+		content, err = base64.StdEncoding.DecodeString(conf)
+		if err != nil {
+			var err2 error
+			content, err2 = base64.RawStdEncoding.DecodeString(conf)
+			if err2 != nil {
+				return nil, fmt.Errorf("decoding base64 input: %s or %s", err2, err)
+			}
+		}
 	}
 
 	err = json.Unmarshal(content, &bridge)
