@@ -2,11 +2,8 @@ package cmd
 
 import (
 	"fmt"
-	"io/ioutil"
 	"log"
 
-	"github.com/abourget/secrets-bridge/pkg/bridge"
-	"github.com/abourget/secrets-bridge/pkg/client"
 	"github.com/spf13/cobra"
 )
 
@@ -16,20 +13,9 @@ var killCmd = &cobra.Command{
 	Short: "Kills the remote bridge server",
 	Long:  ``,
 	Run: func(cmd *cobra.Command, args []string) {
-		confFile := bridgeConfFilenameWithDefault()
-		bridgeConf, err := ioutil.ReadFile(confFile)
+		c, err := newClient(bridgeConf)
 		if err != nil {
-			log.Fatalln("reading %q: %s", confFile, err)
-		}
-
-		bridge, err := bridge.NewFromString(string(bridgeConf))
-		if err != nil {
-			log.Fatalln("--bridge-conf has an invalid value:", err)
-		}
-
-		c := client.NewClient(bridge)
-		if err := c.ChooseEndpoint(); err != nil {
-			log.Fatalln("error pinging server:", err)
+			log.Fatalln(err)
 		}
 
 		err = c.Quit()
@@ -43,4 +29,5 @@ var killCmd = &cobra.Command{
 
 func init() {
 	RootCmd.AddCommand(killCmd)
+	killCmd.Flags().StringVarP(&bridgeConf, "bridge-conf", "c", "", "Base64-encoded Bridge `configuration`.")
 }

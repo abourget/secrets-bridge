@@ -18,8 +18,6 @@ import (
 	"fmt"
 	"log"
 
-	"github.com/abourget/secrets-bridge/pkg/bridge"
-	"github.com/abourget/secrets-bridge/pkg/client"
 	"github.com/spf13/cobra"
 )
 
@@ -29,21 +27,8 @@ var testitCmd = &cobra.Command{
 	Short: "Test connectivity to secrets bridge.",
 	Long:  ``,
 	Run: func(cmd *cobra.Command, args []string) {
-		bridgeConf, err := cmd.Flags().GetString("bridge-conf")
-		if err != nil {
-			log.Fatalln("--bridge-conf invalid:", err)
-		}
-
-		bridge, err := bridge.NewFromString(bridgeConf)
-		if err != nil {
-			log.Fatalln("--bridge-conf has an invalid value:", err)
-		}
-
-		c := client.NewClient(bridge)
-
-		err = c.ChooseEndpoint()
-		if err != nil {
-			log.Fatalln("error pinging server:", err)
+		if _, err := newClient(bridgeConf); err != nil {
+			log.Fatalln(err)
 		}
 
 		fmt.Println("bridge server responding")
@@ -52,4 +37,5 @@ var testitCmd = &cobra.Command{
 
 func init() {
 	RootCmd.AddCommand(testitCmd)
+	testitCmd.Flags().StringVarP(&bridgeConf, "bridge-conf", "c", "", "Base64-encoded Bridge `configuration`.")
 }
