@@ -16,7 +16,7 @@ Docker image.
 
 ## Basic usage
 
-Serves the SSH Agent, with no secret keys. Prints the bridge config to stdout, so you can bring it to the other node by **copy & pasting**:
+Serves the SSH Agent securely over the bridge. Prints the bridge config to stdout, so you can bring it to the other node by **copy & pasting**:
 
     secrets-bridge serve -A
 
