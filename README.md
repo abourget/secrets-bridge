@@ -51,6 +51,22 @@ You can also serve a secret that is already base64 encoded, as plain-text:
     secrets-bridge print key
     hello-world
 
+## Daemonization
+
+You can start `serve` as a daemon with:
+
+    secrets-bridge serve -d daemon.log -A -w -f bridge-conf
+
+This will daemonize and log outputs to `daemon.log` (with `-d`), it
+will enable SSH-Agent forwarding (`-A`), write (`-w`) the bridge
+config to `bridge-conf` (with `-f`).
+
+You can then kill that instance with:
+
+    secrets-bridge kill -c $(cat bridge-conf)
+
+Et hop!
+
 
 ## Usage with Docker
 
