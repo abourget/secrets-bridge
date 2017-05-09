@@ -72,13 +72,12 @@ Et hop!
 
 The _secrets bridge_ allows you to run a tiny server on your host as such:
 
-    secrets-bridge serve -f ./bridge-conf \
-                         -w \
+    secrets-bridge serve -d daemon.log
+                         -f ./bridge-conf -w \
                          --ssh-agent-forwarder \
                          --secret key=value \
-                         --secret key2=value2 \
-                         --secret-from-file key3=filename \
-                         --timeout=300 &
+                         --secret-from-file key2=filename \
+                         --timeout=300
 
 and then, with a `Dockerfile` similar to this:
 
@@ -86,7 +85,7 @@ and then, with a `Dockerfile` similar to this:
     ARG BRIDGE_CONF
     RUN secrets-bridge -c ${BRIDGE_CONF} test
     RUN secrets-bridge -c ${BRIDGE_CONF} exec -- npm install
-    RUN secrets-bridge -c ${BRIDGE_CONF} exec --no-agent -e SECRET=key -- ./do_sensitive_things.sh
+    RUN secrets-bridge -c ${BRIDGE_CONF} exec -e SECRET=key -- ./do_sensitive_things.sh
 
 run `docker build`:
 
@@ -94,11 +93,11 @@ run `docker build`:
 
 and, on the host, finish with:
 
-    secrets-bridge kill -c $BRIDGE_CONF
+    secrets-bridge kill -c `cat bridge-conf`
 
 to terminate the server.
 
-## Other uses
+## Manual usage
 
 With a bridge configuration (in base64), you can also:
 
@@ -135,7 +134,7 @@ requests.
 
 ## The `bridge-conf` file
 
-The `bridge-conf` file contains a base64-encoded version of:
+The `bridge-conf` file contains a gzipped, base64-encoded version of:
 
     {"endpoints": ["https://127.0.0.1:12345", "https://192.168.0.6:12345", "https://172.17.0.1:12345", "https://192.168.99.1:12345"],
      "cacert": "------ BEGIN CERTIFICATE -----\n...",
@@ -150,8 +149,18 @@ All of the information in this file is temporary and will vanish once
 the server terminates. A self-signed CA and client cert/key pair is
 generated on each `serve` runs.
 
+You can elect to RE-USE a CA and set of keys in a subsequent run with
+`--ca-key-store`. NOTE THAT this lessens the security, as it makes the
+keys less "throw-away", making them more appealing to steal.
 
-# Installation
+
+# Installation - from GitHub Releases
+
+Grab a file here and `chmod +x` it if on Linux/Darwin:
+
+https://github.com/abourget/secrets-bridge/releases
+
+# Installation - from source
 
 Download and install [https://golang.org/dl](Golang).  Install with:
 
@@ -160,5 +169,4 @@ go get github.com/abourget/secrets-bridge
 ```
 
 This will build the `secrets-bridge` binary.  You will need a Linux
-amd64 version for inside the containers. I'll soon release binaries in
-the GitHub releases for quick download.
+amd64 version for inside the containers.
