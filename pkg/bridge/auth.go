@@ -1,6 +1,8 @@
 package bridge
 
 import (
+	"bytes"
+	"compress/gzip"
 	"crypto/tls"
 	"crypto/x509"
 	"encoding/base64"
@@ -41,20 +43,24 @@ func NewFromDefaultConfig() (bridge *Bridge, err error) {
 }
 
 func NewFromString(conf string) (bridge *Bridge, err error) {
-	var content []byte
+	content := []byte(strings.TrimSpace(conf))
 
-	conf = strings.TrimSpace(conf)
-
-	if strings.HasPrefix(conf, "{") {
-		content = []byte(conf)
-	} else {
-		content, err = base64.StdEncoding.DecodeString(conf)
+	if !strings.HasPrefix(string(content), "{") {
+		content, err = base64.RawURLEncoding.DecodeString(conf)
 		if err != nil {
-			var err2 error
-			content, err2 = base64.RawStdEncoding.DecodeString(conf)
-			if err2 != nil {
-				return nil, fmt.Errorf("decoding base64 input: %s or %s", err2, err)
-			}
+			return nil, fmt.Errorf("decoding base64: %s", err)
+		}
+	}
+
+	if !strings.HasPrefix(string(content), "{") {
+		// GZip became necessary when we hit a maximum of 4096 BYTES
+		// limitation on `docker exec` initiated terminals. You could
+		// never paste more than 4096 bytes in a swift..  By gzipping
+		// the JSON, we can shrink it under 4096 bytes.
+		gz, _ := gzip.NewReader(bytes.NewReader(content))
+		content, err = ioutil.ReadAll(gz)
+		if err != nil {
+			return nil, fmt.Errorf("gunzip: %s", err)
 		}
 	}
 

@@ -1,6 +1,8 @@
 package cmd
 
 import (
+	"bytes"
+	"compress/gzip"
 	"crypto/tls"
 	"encoding/base64"
 	"encoding/json"
@@ -70,9 +72,18 @@ func serve(cmd *cobra.Command, args []string) {
 
 		jsonConfig, _ := json.Marshal(b)
 
-		bridgeConfText := base64.StdEncoding.EncodeToString(jsonConfig)
+		buf := &bytes.Buffer{}
+
+		gz, _ := gzip.NewWriterLevel(buf, gzip.BestCompression)
+		gz.Write([]byte(jsonConfig))
+		gz.Close()
+
+		configBytes := buf.Bytes()
+
+		bridgeConfText := base64.RawURLEncoding.EncodeToString(configBytes)
 		if writeConf {
 			log.Printf("Writing bridge conf to %q\n", confFile)
+
 			err = ioutil.WriteFile(confFile, []byte(bridgeConfText), 0600)
 			if err != nil {
 				log.Fatalf("Error writing %q: %s\n", confFile, err)
