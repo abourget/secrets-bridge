@@ -170,3 +170,7 @@ go get github.com/abourget/secrets-bridge
 
 This will build the `secrets-bridge` binary.  You will need a Linux
 amd64 version for inside the containers.
+
+# Alternatives
+
+See https://github.com/defunctzombie/docket for another approach (hacking through the image layers to make private files available at build time, but not keep them in).
